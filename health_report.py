@@ -57,12 +57,24 @@ def login(username,passwd):
     # login_res = req.post(url_login_post,data=form_data,headers=headers_login_post)
 
     # print(login_res.status_code) #在浏览器看到的是302,这里却是200,奇怪
-    if login_res.status_code == 200:
+    # 不能通过status_code判断是否登录成功
+    # if login_res.status_code == 200:
+    #     print("登录成功！")
+    #     return session
+    # else:
+    #     return None
+
+    res_html = login_res.text
+    content = etree.HTML(res_html)
+    try:
+        login_fail = content.xpath("//input[@name='lt']/@value")[0]
+    except:
         print("登录成功！")
         return session
     else:
+        print('登录失败。')
         return None
- 
+
 
 
 def report(username,passwd):
@@ -95,20 +107,19 @@ def report(username,passwd):
 
 
 def usage():
-    print("usage: python auto_health_report.py -u <username> -p <password> --healthy")
-    print("  username: 校园网帐号 \n  password：密码 \n  --healthy: 确保你是健康的")
+    print("usage: python auto_health_report.py -u <username> --healthy")
+    print("  username: 校园网帐号 \n  --healthy: 确保你是健康的")
+
 
 
 def main(argv):
     try:
-        opts, args = getopt.getopt(argv,"hu:p:",["healthy"])
+        opts, args = getopt.getopt(argv,"hu:",["healthy"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     
-
     username = ""
-    passwd = ""
     is_healthy = False
     for opt, val in opts:
         if opt == "-h":
@@ -116,15 +127,17 @@ def main(argv):
             sys.exit()
         elif opt == "-u":
             username = val
-        elif opt == "-p":
-            passwd = val
         elif opt == "--healthy":
             is_healthy = True
     
-    if is_healthy and username != "" and passwd != "" :
+    if is_healthy and username != "":
+        import getpass
+        passwd = getpass.getpass('密码：')
+        print('用户：',username)
         report(username,passwd)
     else:
         usage()
+
 
 
 if __name__ == "__main__":
