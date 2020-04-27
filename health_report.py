@@ -1,4 +1,4 @@
-import sys, getopt
+import sys, getopt, itchat, getpass, pickle, os
 import requests as req
 from lxml import etree
 
@@ -101,42 +101,125 @@ def report(username,passwd):
         }
         report_res = session.post(url_report,form_data)
         # print(report_res.status_code)
+        flag = False
         if report_res.status_code == 200:
             print("今天的健康信息已经上传！")
+            flag  = True
+        else:
+            print("健康信上传失败！")
+
+        return flag
     
 
+def send_wechat_msg(target_name,msg):
+    itchat.auto_login(True)
+    groups = itchat.get_chatrooms(update=True)
 
-def usage():
-    print("usage: python auto_health_report.py -u <username> --healthy")
-    print("  username: 校园网帐号 \n  --healthy: 确保你是健康的")
+    target = None
+    for group in groups:
+        if group['NickName'] == target_name:
+            target = group['UserName']
 
+    if target != None:
+        res_info = itchat.send(msg,target)
+    else:
+        print('微信群不存在！')
+
+    res_flag = res_info['BaseResponse']['Ret'] == 0
+    
+    
+    if res_flag:
+        print('成功，发送消息\'{}\'到群组\'{}\''.format(msg,target_name))
+    else:
+        print('成功微信消息失败')
+    
+    return res_flag
+
+
+# def get_basic_info_cmd(argv):
+
+    # def usage():
+    #     print("usage: python auto_health_report.py -u <username> -m <wechat message> -t <target group name> --healthy\n \
+    #     or using cache: python auto_health_report.py  -c ")
+    #     print("  username: 校园网帐号 \n  --healthy: 确保你是健康的")
+    
+    # try:
+    #     opts, args = getopt.getopt(argv,"hu:m:t:",["healthy"])
+    # except getopt.GetoptError:
+    #     print('命令行参数不正确')
+    #     usage()
+    #     sys.exit(2)
+    
+    # info = {
+    #     "username" : "",
+    #     "is_healthy": False,
+    #     "msg": "",
+    #     "target_name": ""
+    # }
+   
+    # for opt, val in opts:
+    #     if opt == "-h":
+    #         usage()
+    #         sys.exit()
+    #     elif opt == "-u":
+    #         info["username"] = val
+    #     elif opt == '-m':
+    #         info["msg"] = val
+    #     elif opt == '-t':
+    #         info["target_name"] = val
+    #     elif opt == "--healthy":
+    #         info["is_healthy"] = True
+    
+    # return info
+
+
+def get_basic_info():
+
+    info = {
+        "username" : "",
+        "is_healthy": False,
+        "msg": "",
+        "target_name": ""
+    }
+
+    cache_file = 'info.pkl'
+
+    if os.path.isfile(cache_file):
+        pkl_file = open(cache_file, 'rb')
+        info = pickle.load(pkl_file)
+    else:
+        info["username"] = input("用户名：\n")
+        info["is_healthy"] = input("是否健康：(Y|其它)\n")
+        info["target_name"] = input("微信群名：\n")
+        info["msg"] = input("要发送的消息：\n")
+
+
+        if info["is_healthy"] == "Y" or info["is_healthy"] == "y":
+            info["is_healthy"] = True
+
+        with open(cache_file,'wb') as f:
+            pickle.dump(info,f)
+
+    return info
 
 
 def main(argv):
-    try:
-        opts, args = getopt.getopt(argv,"hu:",["healthy"])
-    except getopt.GetoptError:
-        usage()
-        sys.exit(2)
     
-    username = ""
-    is_healthy = False
-    for opt, val in opts:
-        if opt == "-h":
-            usage()
-            sys.exit()
-        elif opt == "-u":
-            username = val
-        elif opt == "--healthy":
-            is_healthy = True
+    info = get_basic_info()
+
+    # info = get_basic_info_cmd(argv)
+
+    if info["is_healthy"]:
+        if info["username"] != "" and info["msg"] != "" and info["target_name"] != "":
+            # print('用户：',info["username"])
+
+            passwd = getpass.getpass('密码：')
+
+            if report(info["username"],passwd):
+                send_wechat_msg(msg=info["msg"],target_name=info["target_name"])
     
-    if is_healthy and username != "":
-        import getpass
-        passwd = getpass.getpass('密码：')
-        print('用户：',username)
-        report(username,passwd)
     else:
-        usage()
+        print("请确保你是健康的。")
 
 
 
